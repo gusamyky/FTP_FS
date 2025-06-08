@@ -17,8 +17,7 @@ public class ClientDAO {
         String sql = "INSERT INTO Klienci (username, password) VALUES (?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, client.getUsername());
-            String hashed = BCrypt.hashpw(client.getPassword(), BCrypt.gensalt());
-            stmt.setString(2, hashed);
+            stmt.setString(2, client.getPassword());
             stmt.executeUpdate();
         }
     }
@@ -65,8 +64,7 @@ public class ClientDAO {
         String sql = "UPDATE Klienci SET username = ?, password = ? WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, client.getUsername());
-            String hashed = BCrypt.hashpw(client.getPassword(), BCrypt.gensalt());
-            stmt.setString(2, hashed);
+            stmt.setString(2, client.getPassword());
             stmt.setInt(3, client.getId());
             stmt.executeUpdate();
         }
