@@ -8,7 +8,6 @@ public class PasswordUtil {
     }
 
     public static boolean verifyPassword(String password, String hash) {
-        System.out.println(BCrypt.checkpw("admin123", "$2a$12$9eF4zGh7os.P1vy2AnhI.eoMTYL0Qz7dwaf8JcLQPlddaB3JhrciG"));
         return BCrypt.checkpw(password, hash);
     }
 }

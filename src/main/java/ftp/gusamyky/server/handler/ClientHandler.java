@@ -21,11 +21,12 @@ public class ClientHandler implements Runnable {
     private boolean loggedIn = false;
     private String loggedUsername = null;
     private Integer loggedClientId = null;
-    private final String filesDir = "server_files"; // uproszczenie, można pobrać z configu
+    private final String filesDir;
 
     public ClientHandler(Socket socket, ServiceFactory serviceFactory) {
         this.socket = socket;
         this.serviceFactory = serviceFactory;
+        this.filesDir = serviceFactory.getServerConfig().getFilesDir();
     }
 
     @Override
@@ -206,7 +207,10 @@ public class ClientHandler implements Runnable {
 
     private String handleList() {
         IFileService fileService = serviceFactory.getFileService();
-        List<ftp.gusamyky.server.common.model.ServerFileModel> files = fileService.listFilesByOwner(0);
+        if (loggedClientId == null) {
+            return "LIST ERROR: Not logged in";
+        }
+        List<ftp.gusamyky.server.common.model.ServerFileModel> files = fileService.listFilesByOwner(loggedClientId);
         if (files.isEmpty())
             return "FILES: (brak plików)";
         StringBuilder sb = new StringBuilder("FILES:");

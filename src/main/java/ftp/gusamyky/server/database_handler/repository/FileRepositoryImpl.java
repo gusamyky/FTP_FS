@@ -20,28 +20,27 @@ public class FileRepositoryImpl implements IFileRepository {
 
     @Override
     public ServerFileModel findById(int id) {
-        File dir = new File(config.getFilesDirectory());
-        File[] files = dir.listFiles();
-        if (files == null)
+        throw new UnsupportedOperationException("Use findByFilename instead of findById (int)");
+    }
+
+    public ServerFileModel findByFilename(String filename) {
+        File file = new File(config.getFilesDirectory(), filename);
+        if (!file.exists() || !file.isFile())
             return null;
-        for (File f : files) {
-            if (f.isFile() && f.getName().hashCode() == id) {
-                try {
-                    return new ServerFileModel(
-                            id,
-                            f.getName(),
-                            f.length(),
-                            0,
-                            LocalDateTime.ofInstant(
-                                    Files.exists(f.toPath()) ? Files.getLastModifiedTime(f.toPath()).toInstant()
-                                            : java.time.Instant.now(),
-                                    java.time.ZoneId.systemDefault()));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        try {
+            return new ServerFileModel(
+                    0,
+                    file.getName(),
+                    file.length(),
+                    0,
+                    LocalDateTime.ofInstant(
+                            Files.exists(file.toPath()) ? Files.getLastModifiedTime(file.toPath()).toInstant()
+                                    : java.time.Instant.now(),
+                            java.time.ZoneId.systemDefault()));
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     @Override
@@ -55,7 +54,7 @@ public class FileRepositoryImpl implements IFileRepository {
             if (f.isFile()) {
                 try {
                     result.add(new ServerFileModel(
-                            f.getName().hashCode(),
+                            0,
                             f.getName(),
                             f.length(),
                             0,
@@ -83,17 +82,15 @@ public class FileRepositoryImpl implements IFileRepository {
         }
     }
 
+    public void deleteByFilename(String filename) {
+        File file = new File(config.getFilesDirectory(), filename);
+        if (file.exists() && file.isFile()) {
+            file.delete();
+        }
+    }
+
     @Override
     public void delete(int id) {
-        File dir = new File(config.getFilesDirectory());
-        File[] files = dir.listFiles();
-        if (files == null)
-            return;
-        for (File f : files) {
-            if (f.isFile() && f.getName().hashCode() == id) {
-                f.delete();
-                break;
-            }
-        }
+        throw new UnsupportedOperationException("Use deleteByFilename instead of delete(int)");
     }
 }

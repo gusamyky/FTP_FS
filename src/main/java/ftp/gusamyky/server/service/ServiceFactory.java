@@ -13,6 +13,7 @@ import ftp.gusamyky.server.service.impl.UserServiceImpl;
 import ftp.gusamyky.server.service.impl.FileServiceImpl;
 import ftp.gusamyky.server.service.impl.HistoryServiceImpl;
 import ftp.gusamyky.server.config.DatabaseConfig;
+import ftp.gusamyky.server.config.ServerConfig;
 
 public class ServiceFactory {
     private final IClientRepository clientRepository;
@@ -21,8 +22,10 @@ public class ServiceFactory {
     private final IUserService userService;
     private final IFileService fileService;
     private final IHistoryService historyService;
+    private final ServerConfig serverConfig;
 
-    public ServiceFactory(DatabaseConfig dbConfig) {
+    public ServiceFactory(DatabaseConfig dbConfig, ServerConfig serverConfig) {
+        this.serverConfig = serverConfig;
         this.clientRepository = new ClientRepositoryImpl(dbConfig);
         this.fileRepository = new FileRepositoryImpl(dbConfig);
         this.historyRepository = new HistoryRepositoryImpl(dbConfig);
@@ -45,5 +48,9 @@ public class ServiceFactory {
 
     public IClientRepository getClientRepository() {
         return clientRepository;
+    }
+
+    public ServerConfig getServerConfig() {
+        return serverConfig;
     }
 }

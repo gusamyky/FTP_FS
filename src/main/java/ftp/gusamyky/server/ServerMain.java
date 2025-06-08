@@ -22,7 +22,7 @@ public class ServerMain {
             ServerConfig serverConfig = ConfigLoader.loadServerConfig();
             DatabaseConfig dbConfig = ConfigLoader.loadDatabaseConfig();
             DatabaseInitializer.initialize(dbConfig);
-            ServiceFactory serviceFactory = new ServiceFactory(dbConfig);
+            ServiceFactory serviceFactory = new ServiceFactory(dbConfig, serverConfig);
             networkService = new ServerNetworkService(serverConfig, serviceFactory);
 
             // Start socket server
