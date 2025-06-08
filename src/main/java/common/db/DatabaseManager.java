@@ -74,7 +74,7 @@ public class DatabaseManager {
         while (!connected && retries < MAX_RETRIES) {
             try {
                 // First connect without specifying a database to create it if needed
-                String urlNoDb = config.getUrl().substring(0, config.getUrl().lastIndexOf("/"));
+                String urlNoDb = config.getUrl().substring(0, config.getUrl().lastIndexOf("/")+1);
 
                 System.out.println("[" + LocalDateTime.now() + "] Attempting to connect to MySQL server at " + urlNoDb);
 
