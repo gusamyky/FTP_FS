@@ -1,40 +1,41 @@
-package server;
+package ftp.gusamyky.server.handler;
 
-import common.db.ClientDAO;
-import common.db.OperationHistoryDAO;
-import common.model.Client;
+import ftp.gusamyky.server.common.model.ClientModel;
+import ftp.gusamyky.server.common.model.OperationHistoryModel;
+import ftp.gusamyky.server.common.service.IFileService;
+import ftp.gusamyky.server.common.service.IHistoryService;
+import ftp.gusamyky.server.common.service.IUserService;
+import ftp.gusamyky.server.service.ServiceFactory;
+import ftp.gusamyky.server.util.ReportExportUtil;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.io.File;
+import java.util.List;
 
 public class ClientHandler implements Runnable {
-    private final Socket clientSocket;
-    private final ClientDAO clientDAO;
-    private final OperationHistoryDAO historyDAO;
-    private final String filesDir;
+    private final Socket socket;
+    private final ServiceFactory serviceFactory;
     private boolean loggedIn = false;
     private String loggedUsername = null;
+    private Integer loggedClientId = null;
+    private final String filesDir = "server_files"; // uproszczenie, można pobrać z configu
 
-    public ClientHandler(Socket clientSocket, ClientDAO clientDAO, OperationHistoryDAO historyDAO, String filesDir) {
-        this.clientSocket = clientSocket;
-        this.clientDAO = clientDAO;
-        this.historyDAO = historyDAO;
-        this.filesDir = filesDir;
+    public ClientHandler(Socket socket, ServiceFactory serviceFactory) {
+        this.socket = socket;
+        this.serviceFactory = serviceFactory;
     }
 
     @Override
     public void run() {
-        String clientIp = clientSocket.getInetAddress().getHostAddress();
+        String clientIp = socket.getInetAddress().getHostAddress();
         try (
-                BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
-                InputStream in = clientSocket.getInputStream();
-                OutputStream out = clientSocket.getOutputStream()) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                InputStream in = socket.getInputStream();
+                OutputStream out = socket.getOutputStream()) {
             writer.write("Welcome to FTP_FS server!\n");
             writer.flush();
             String line;
@@ -45,8 +46,7 @@ public class ClientHandler implements Runnable {
                 switch (cmd) {
                     case "UPLOAD":
                         if (!loggedIn) {
-                            writer.write("ERROR: Not logged in\n");
-                            writer.flush();
+                            sendError(writer, "ERROR: Not logged in");
                             break;
                         }
                         writer.write("READY\n");
@@ -55,8 +55,7 @@ public class ClientHandler implements Runnable {
                         break;
                     case "DOWNLOAD":
                         if (!loggedIn) {
-                            writer.write("ERROR: Not logged in\n");
-                            writer.flush();
+                            sendError(writer, "ERROR: Not logged in");
                             break;
                         }
                         sendFile(args, out, writer, clientIp);
@@ -72,6 +71,9 @@ public class ClientHandler implements Runnable {
                         if (loginResult.equals("LOGIN OK")) {
                             loggedIn = true;
                             loggedUsername = args.split(" ")[0];
+                            IUserService userService = serviceFactory.getUserService();
+                            ClientModel client = userService.findUserByUsername(loggedUsername);
+                            loggedClientId = (client != null) ? client.getId() : null;
                         }
                         break;
                     }
@@ -100,18 +102,18 @@ public class ClientHandler implements Runnable {
             System.out.println("[Server] Client disconnected: " + e.getMessage());
         } finally {
             try {
-                clientSocket.close();
+                socket.close();
             } catch (IOException ignored) {
             }
         }
     }
 
-    // --- Transfer plików ---
     private void receiveFile(String filename, InputStream in, BufferedReader reader, BufferedWriter writer,
-            String clientIp) throws IOException {
+            String clientIp)
+            throws IOException {
         if (filename.isEmpty()) {
             sendError(writer, "UPLOAD ERROR: No filename given");
-            logOperation(0, "UPLOAD_FAIL:NoFilename");
+            logOperation(loggedClientId, "UPLOAD_FAIL:NoFilename");
             System.out.println("[UPLOAD][FAIL] No filename given from IP: " + clientIp);
             return;
         }
@@ -123,7 +125,7 @@ public class ClientHandler implements Runnable {
             fileSize = Long.parseLong(lenLine);
         } catch (NumberFormatException e) {
             sendError(writer, "UPLOAD ERROR: Invalid file size");
-            logOperation(0, "UPLOAD_FAIL:InvalidFileSize");
+            logOperation(loggedClientId, "UPLOAD_FAIL:InvalidFileSize");
             System.out.println("[UPLOAD][FAIL] Invalid file size for '" + filename + "' from IP: " + clientIp);
             return;
         }
@@ -142,7 +144,7 @@ public class ClientHandler implements Runnable {
             }
         }
         sendOk(writer, "UPLOAD OK");
-        logOperation(0, "UPLOAD_OK: " + filename);
+        logOperation(loggedClientId, "UPLOAD_OK: " + filename);
         System.out
                 .println("[UPLOAD][END] File: '" + filename + "', Size: " + fileSize + " bytes, From IP: " + clientIp);
     }
@@ -151,14 +153,14 @@ public class ClientHandler implements Runnable {
             throws IOException {
         if (filename.isEmpty()) {
             sendError(writer, "DOWNLOAD ERROR: No filename given");
-            logOperation(0, "DOWNLOAD_FAIL:NoFilename");
+            logOperation(loggedClientId, "DOWNLOAD_FAIL:NoFilename");
             System.out.println("[DOWNLOAD][FAIL] No filename given to IP: " + clientIp);
             return;
         }
         Path filePath = Paths.get(filesDir, filename);
         if (!Files.exists(filePath)) {
             sendError(writer, "DOWNLOAD ERROR: File not found");
-            logOperation(0, "DOWNLOAD_FAIL:FileNotFound");
+            logOperation(loggedClientId, "DOWNLOAD_FAIL:FileNotFound");
             System.out.println("[DOWNLOAD][FAIL] File not found: '" + filename + "' for IP: " + clientIp);
             return;
         }
@@ -175,133 +177,79 @@ public class ClientHandler implements Runnable {
             }
             out.flush();
         }
-        logOperation(0, "DOWNLOAD_OK: " + filename);
+        logOperation(loggedClientId, "DOWNLOAD_OK: " + filename);
         System.out
                 .println("[DOWNLOAD][END] File: '" + filename + "', Size: " + fileSize + " bytes, To IP: " + clientIp);
     }
 
-    // --- Komendy tekstowe ---
     private String handleRegister(String args) {
+        IUserService userService = serviceFactory.getUserService();
         String[] tokens = args.split(" ");
-        if (tokens.length != 2) {
+        if (tokens.length != 2)
             return "REGISTER ERROR: Usage REGISTER <username> <password>";
-        }
         String username = tokens[0];
         String password = tokens[1];
-        try {
-            if (clientDAO.getClientByUsername(username) != null) {
-                logOperation(0, "REGISTER_FAIL:UsernameExists");
-                return "REGISTER ERROR: Username already exists";
-            }
-            clientDAO.addClient(new Client(0, username, password));
-            Client client = clientDAO.getClientByUsername(username);
-            logOperation(client != null ? client.getId() : 0, "REGISTER_OK");
-            return "REGISTER OK";
-        } catch (SQLException e) {
-            logOperation(0, "REGISTER_ERROR: " + e.getMessage());
-            return "REGISTER ERROR: " + e.getMessage();
-        }
+        // delegacja do serwisu
+        return ((ftp.gusamyky.server.service.impl.UserServiceImpl) userService).register(username, password);
     }
 
     private String handleLogin(String args) {
+        IUserService userService = serviceFactory.getUserService();
         String[] tokens = args.split(" ");
-        if (tokens.length != 2) {
+        if (tokens.length != 2)
             return "LOGIN ERROR: Usage LOGIN <username> <password>";
-        }
         String username = tokens[0];
         String password = tokens[1];
-        try {
-            Client client = clientDAO.getClientByUsername(username);
-            if (client == null) {
-                logOperation(0, "LOGIN_FAIL:UserNotFound");
-                return "LOGIN ERROR: User not found";
-            }
-            if (!clientDAO.checkPassword(username, password)) {
-                logOperation(client.getId(), "LOGIN_FAIL:InvalidPassword");
-                return "LOGIN ERROR: Invalid password";
-            }
-            logOperation(client.getId(), "LOGIN_OK");
-            return "LOGIN OK";
-        } catch (SQLException e) {
-            logOperation(0, "LOGIN_ERROR: " + e.getMessage());
-            return "LOGIN ERROR: " + e.getMessage();
-        }
+        // delegacja do serwisu
+        return ((ftp.gusamyky.server.service.impl.UserServiceImpl) userService).login(username, password);
     }
 
     private String handleList() {
-        try {
-            Files.createDirectories(Paths.get(filesDir));
-            File dir = new File(filesDir);
-            File[] files = dir.listFiles();
-            int clientId = 0;
-            logOperation(clientId, "LIST");
-            if (files == null || files.length == 0) {
-                return "FILES: (brak plików)";
-            }
-            StringBuilder sb = new StringBuilder("FILES:");
-            for (File f : files) {
-                if (f.isFile()) {
-                    sb.append(" ").append(f.getName());
-                }
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            logOperation(0, "LIST_ERROR: " + e.getMessage());
-            return "LIST ERROR: " + e.getMessage();
+        IFileService fileService = serviceFactory.getFileService();
+        List<ftp.gusamyky.server.common.model.ServerFileModel> files = fileService.listFilesByOwner(0);
+        if (files.isEmpty())
+            return "FILES: (brak plików)";
+        StringBuilder sb = new StringBuilder("FILES:");
+        for (var f : files) {
+            sb.append(" ").append(f.getFilename());
         }
+        logOperation(loggedClientId, "LIST");
+        return sb.toString();
     }
 
     private String handleHistory(String args) {
+        IUserService userService = serviceFactory.getUserService();
+        IHistoryService historyService = serviceFactory.getHistoryService();
         String username = args.trim();
         if (username.isEmpty())
             return "HISTORY ERROR: No username given";
-        try {
-            Client client = clientDAO.getClientByUsername(username);
-            if (client == null)
-                return "HISTORY ERROR: User not found";
-            var ops = historyDAO.getOperationsByClientId(client.getId());
-            if (ops.isEmpty())
-                return "HISTORY: (brak operacji)";
-            StringBuilder sb = new StringBuilder("HISTORY:\n");
-            for (var op : ops) {
-                sb.append(op.getTimestamp()).append(" | ")
-                        .append(op.getOperation()).append("\n");
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            return "HISTORY ERROR: " + e.getMessage();
+        ClientModel client = userService.findUserByUsername(username);
+        if (client == null)
+            return "HISTORY ERROR: User not found";
+        List<OperationHistoryModel> ops = historyService.getHistoryByClientId(client.getId());
+        if (ops.isEmpty())
+            return "HISTORY: (brak operacji)";
+        StringBuilder sb = new StringBuilder("HISTORY:\n");
+        for (var op : ops) {
+            sb.append(op.getTimestamp()).append(" | ").append(op.getOperation()).append("\n");
         }
+        return sb.toString();
     }
 
     private String handleReport() {
-        try {
-            var allOps = historyDAO.getAllOperations();
-            StringBuilder sb = new StringBuilder();
-            sb.append("RAPORT OPERACJI\n====================\n");
-            for (var op : allOps) {
-                sb.append(op.getTimestamp()).append(" | clientId=")
-                        .append(op.getClientId()).append(" | ")
-                        .append(op.getOperation()).append("\n");
-            }
-            String path = "report.txt";
-            try (java.io.FileWriter fw = new java.io.FileWriter(path)) {
-                fw.write(sb.toString());
-            }
-            return "REPORT OK: " + path;
-        } catch (Exception e) {
-            return "REPORT ERROR: " + e.getMessage();
-        }
+        IHistoryService historyService = serviceFactory.getHistoryService();
+        List<OperationHistoryModel> allOps = historyService.getHistoryByClientId(0); // uproszczenie: pobierz wszystko
+        String path = "report.csv";
+        ReportExportUtil.exportToCsv(allOps, path);
+        return "REPORT OK: " + path;
     }
 
-    // --- Pomocnicze ---
-    private void logOperation(int clientId, String operation) {
+    private void logOperation(Integer clientId, String operation) {
+        IHistoryService historyService = serviceFactory.getHistoryService();
         String user = loggedUsername != null ? loggedUsername : "unknown";
-        String timestamp = java.time.LocalDateTime.now().toString();
-        String opWithUserAndTime = operation + " [user:" + user + "] [" + timestamp + "]";
-        try {
-            historyDAO.addOperation(
-                    new common.model.OperationHistory(0, clientId, opWithUserAndTime, java.time.LocalDateTime.now()));
-        } catch (Exception ignored) {
+        String opWithUserAndTime = operation + " [user:" + user + "] [" + LocalDateTime.now() + "]";
+        if (clientId != null) {
+            historyService.addOperation(new OperationHistoryModel(0, clientId, opWithUserAndTime, LocalDateTime.now()));
         }
     }
 
