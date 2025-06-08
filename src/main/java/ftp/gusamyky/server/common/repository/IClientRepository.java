@@ -10,4 +10,6 @@ public interface IClientRepository {
     void save(ClientModel client);
 
     void delete(int id);
+
+    void updateLastLogin(int clientId);
 }

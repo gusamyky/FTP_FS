@@ -43,6 +43,7 @@ public class UserServiceImpl implements IUserService {
         if (!PasswordUtil.verifyPassword(password, client.getPassword())) {
             return "LOGIN ERROR: Invalid password";
         }
+        clientRepository.updateLastLogin(client.getId());
         return "LOGIN OK";
     }
 }

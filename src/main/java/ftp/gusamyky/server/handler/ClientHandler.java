@@ -79,8 +79,16 @@ public class ClientHandler implements Runnable {
                         break;
                     }
                     case "REGISTER":
-                        writer.write(handleRegister(args) + "\n");
+                        String registerResult = handleRegister(args);
+                        writer.write(registerResult + "\n");
                         writer.flush();
+                        if (registerResult.equals("REGISTER OK")) {
+                            loggedIn = true;
+                            loggedUsername = args.split(" ")[0];
+                            IUserService userService = serviceFactory.getUserService();
+                            ClientModel client = userService.findUserByUsername(loggedUsername);
+                            loggedClientId = (client != null) ? client.getId() : null;
+                        }
                         break;
                     case "LIST":
                         writer.write(handleList() + "\n");
