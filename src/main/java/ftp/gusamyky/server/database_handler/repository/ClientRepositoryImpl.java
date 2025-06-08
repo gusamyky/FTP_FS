@@ -79,4 +79,16 @@ public class ClientRepositoryImpl implements IClientRepository {
             e.printStackTrace();
         }
     }
+
+    public void updateLastLogin(int clientId) {
+        try (Connection conn = getConnection()) {
+            String sql = "UPDATE Klienci SET last_login = NOW() WHERE id = ?";
+            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setInt(1, clientId);
+                stmt.executeUpdate();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
