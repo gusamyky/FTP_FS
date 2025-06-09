@@ -13,7 +13,7 @@ public class OperationHistoryDAO {
     }
 
     public void addOperation(OperationHistory op) throws SQLException {
-        String sql = "INSERT INTO HistoriaOperacji (client_id, operation, timestamp) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO historiaoperacji (client_id, operation, timestamp) VALUES (?, ?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, op.getClientId());
             stmt.setString(2, op.getOperation());
@@ -24,7 +24,7 @@ public class OperationHistoryDAO {
 
     public List<OperationHistory> getOperationsByClientId(int clientId) throws SQLException {
         List<OperationHistory> ops = new ArrayList<>();
-        String sql = "SELECT * FROM HistoriaOperacji WHERE client_id = ?";
+        String sql = "SELECT * FROM historiaoperacji WHERE client_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, clientId);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -42,7 +42,7 @@ public class OperationHistoryDAO {
 
     public List<OperationHistory> getAllOperations() throws SQLException {
         List<OperationHistory> ops = new ArrayList<>();
-        String sql = "SELECT * FROM HistoriaOperacji";
+        String sql = "SELECT * FROM historiaoperacji";
         try (Statement stmt = connection.createStatement();
                 ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -57,7 +57,7 @@ public class OperationHistoryDAO {
     }
 
     public void deleteOperation(int id) throws SQLException {
-        String sql = "DELETE FROM HistoriaOperacji WHERE id = ?";
+        String sql = "DELETE FROM historiaoperacji WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             stmt.executeUpdate();

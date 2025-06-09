@@ -7,7 +7,7 @@ CREATE DATABASE IF NOT EXISTS ftp_fs;
 USE ftp_fs;
 
 -- Client table
-CREATE TABLE IF NOT EXISTS Klienci (
+CREATE TABLE IF NOT EXISTS klienci (
     id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
@@ -16,10 +16,10 @@ CREATE TABLE IF NOT EXISTS Klienci (
 );
 
 -- Operation history table
-CREATE TABLE IF NOT EXISTS HistoriaOperacji (
+CREATE TABLE IF NOT EXISTS historiaoperacji (
     id INT PRIMARY KEY AUTO_INCREMENT,
     client_id INT,
     operation VARCHAR(255) NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES Klienci(id)
+    FOREIGN KEY (client_id) REFERENCES klienci(id)
 );

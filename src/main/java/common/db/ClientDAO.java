@@ -14,7 +14,7 @@ public class ClientDAO {
     }
 
     public void addClient(Client client) throws SQLException {
-        String sql = "INSERT INTO Klienci (username, password) VALUES (?, ?)";
+        String sql = "INSERT INTO klienci (username, password) VALUES (?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, client.getUsername());
             stmt.setString(2, client.getPassword());
@@ -23,7 +23,7 @@ public class ClientDAO {
     }
 
     public Client getClientByUsername(String username) throws SQLException {
-        String sql = "SELECT * FROM Klienci WHERE username = ?";
+        String sql = "SELECT * FROM klienci WHERE username = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, username);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -47,7 +47,7 @@ public class ClientDAO {
 
     public List<Client> getAllClients() throws SQLException {
         List<Client> clients = new ArrayList<>();
-        String sql = "SELECT * FROM Klienci";
+        String sql = "SELECT * FROM klienci";
         try (Statement stmt = connection.createStatement();
                 ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -61,7 +61,7 @@ public class ClientDAO {
     }
 
     public void updateClient(Client client) throws SQLException {
-        String sql = "UPDATE Klienci SET username = ?, password = ? WHERE id = ?";
+        String sql = "UPDATE klienci SET username = ?, password = ? WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, client.getUsername());
             stmt.setString(2, client.getPassword());
@@ -71,7 +71,7 @@ public class ClientDAO {
     }
 
     public void deleteClient(int id) throws SQLException {
-        String sql = "DELETE FROM Klienci WHERE id = ?";
+        String sql = "DELETE FROM klienci WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             stmt.executeUpdate();
