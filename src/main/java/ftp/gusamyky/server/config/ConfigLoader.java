@@ -18,7 +18,8 @@ public class ConfigLoader {
         }
         int port = Integer.parseInt(prop.getProperty("server.port", "2121"));
         String filesDir = prop.getProperty("server.filesDir", "server_files");
-        return new ServerConfig(port, filesDir);
+        String host = prop.getProperty("server.host", "0.0.0.0");
+        return new ServerConfig(port, filesDir, host);
     }
 
     public static DatabaseConfig loadDatabaseConfig() {

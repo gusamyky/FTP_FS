@@ -5,6 +5,7 @@ import ftp.gusamyky.server.service.ServiceFactory;
 import ftp.gusamyky.server.handler.ClientHandler;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,8 +22,9 @@ public class ServerNetworkService {
 
     public void start() {
         try {
-            serverSocket = new ServerSocket(config.getPort());
-            System.out.println("[Server] Listening on port " + config.getPort());
+            serverSocket = new ServerSocket();
+            serverSocket.bind(new InetSocketAddress(config.getHost(), config.getPort()));
+            System.out.println("[Server] Listening on " + config.getHost() + ":" + config.getPort());
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println(

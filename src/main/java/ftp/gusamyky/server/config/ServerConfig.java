@@ -3,10 +3,12 @@ package ftp.gusamyky.server.config;
 public class ServerConfig {
     private int port;
     private String filesDir;
+    private String host;
 
-    public ServerConfig(int port, String filesDir) {
+    public ServerConfig(int port, String filesDir, String host) {
         this.port = port;
         this.filesDir = filesDir;
+        this.host = host;
     }
 
     public int getPort() {
@@ -17,11 +19,19 @@ public class ServerConfig {
         return filesDir;
     }
 
+    public String getHost() {
+        return host;
+    }
+
     public void setPort(int port) {
         this.port = port;
     }
 
     public void setFilesDir(String filesDir) {
         this.filesDir = filesDir;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
     }
 }

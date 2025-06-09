@@ -11,6 +11,7 @@ public class DatabaseConfig {
     private String user;
     private String password;
     private String dbName;
+    private String urlNoDb;
     private int maxConnections = 10;
     private int connectionTimeout = 30000; // 30 seconds
 
@@ -53,6 +54,8 @@ public class DatabaseConfig {
         url = getPropertyWithDefault(prop, "db.url", DEFAULT_URL);
         user = getPropertyWithDefault(prop, "db.user", DEFAULT_USER);
         password = getPropertyWithDefault(prop, "db.password", DEFAULT_PASSWORD);
+        urlNoDb = getPropertyWithDefault(prop, "db.urlNoDb",
+                DEFAULT_URL.substring(0, DEFAULT_URL.lastIndexOf("/") + 1));
 
         // Try to parse optional configuration values
         try {
@@ -93,7 +96,8 @@ public class DatabaseConfig {
             System.err.println("WARNING: Database URL does not appear to be a valid MySQL JDBC URL: " + url);
         }
 
-        System.out.println("Database configuration initialized with URL: " + url + ", user: " + user + ", database: " + dbName);
+        System.out.println(
+                "Database configuration initialized with URL: " + url + ", user: " + user + ", database: " + dbName);
     }
 
     private String getPropertyWithDefault(Properties prop, String key, String defaultValue) {
@@ -105,21 +109,42 @@ public class DatabaseConfig {
         return value;
     }
 
-    public String getUrl() { return url; }
-    public String getUser() { return user; }
-    public String getPassword() { return password; }
-    public String getDbName() { return dbName; }
-    public int getMaxConnections() { return maxConnections; }
-    public int getConnectionTimeout() { return connectionTimeout; }
+    public String getUrl() {
+        return url;
+    }
+
+    public String getUser() {
+        return user;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getDbName() {
+        return dbName;
+    }
+
+    public String getUrlNoDb() {
+        return urlNoDb;
+    }
+
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public int getConnectionTimeout() {
+        return connectionTimeout;
+    }
 
     @Override
     public String toString() {
         return "DatabaseConfig{" +
-               "url='" + url + "', " +
-               "user='" + user + "', " +
-               "dbName='" + dbName + "', " +
-               "maxConnections=" + maxConnections + ", " +
-               "connectionTimeout=" + connectionTimeout +
-               '}';
+                "url='" + url + "', " +
+                "user='" + user + "', " +
+                "dbName='" + dbName + "', " +
+                "maxConnections=" + maxConnections + ", " +
+                "connectionTimeout=" + connectionTimeout +
+                '}';
     }
-} 
+}
