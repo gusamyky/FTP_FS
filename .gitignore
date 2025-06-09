@@ -39,3 +39,5 @@ build/
 
 ### Project files ###
 server_files/
+publish_profile.xml
+config.properties
