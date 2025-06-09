@@ -37,8 +37,8 @@ def test_ftp_connection(host, port=2121):
 if __name__ == "__main__":
     # Try both with and without the port in the hostname
     hosts = [
-        "ftpfs-app.greenpebble-56bf6262.westeurope.azurecontainerapps.io",
-        "ftpfs-app.greenpebble-56bf6262.westeurope.azurecontainerapps.io:2121"
+        "ftpfs-app-service.azurewebsites.net",
+        "ftpfs-app-service.azurewebsites.net:2121"
     ]
     
     for host in hosts:
