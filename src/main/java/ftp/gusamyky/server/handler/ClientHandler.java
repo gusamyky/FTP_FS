@@ -14,8 +14,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ClientHandler implements Runnable {
+    private static final Logger logger = LoggerFactory.getLogger(ClientHandler.class);
     private final Socket socket;
     private final ServiceFactory serviceFactory;
     private boolean loggedIn = false;
@@ -108,22 +111,35 @@ public class ClientHandler implements Runnable {
                 }
             }
         } catch (IOException e) {
-            System.out.println("[Server] Client disconnected: " + e.getMessage());
+            logger.info("[Server] Client disconnected: {}", clientIp, e);
         } finally {
             try {
                 socket.close();
-            } catch (IOException ignored) {
+            } catch (IOException e) {
+                logger.warn("[Server] Error closing socket for client {}: {}", clientIp, e.getMessage());
             }
         }
+    }
+
+    private boolean isFilenameValid(String filename) {
+        // Nie pozwalaj na ../, \ lub puste nazwy plików
+        return filename != null && !filename.isBlank() && !filename.contains("..") && !filename.contains("/")
+                && !filename.contains("\\");
     }
 
     private void receiveFile(String filename, InputStream in, BufferedReader reader, BufferedWriter writer,
             String clientIp)
             throws IOException {
+        if (!isFilenameValid(filename)) {
+            sendError(writer, "UPLOAD ERROR: Invalid filename");
+            logOperation(loggedClientId, "UPLOAD_FAIL:InvalidFilename");
+            logger.warn("[UPLOAD][FAIL] Invalid filename '{}' from IP: {}", filename, clientIp);
+            return;
+        }
         if (filename.isEmpty()) {
             sendError(writer, "UPLOAD ERROR: No filename given");
             logOperation(loggedClientId, "UPLOAD_FAIL:NoFilename");
-            System.out.println("[UPLOAD][FAIL] No filename given from IP: " + clientIp);
+            logger.warn("[UPLOAD][FAIL] No filename given from IP: {}", clientIp);
             return;
         }
         Files.createDirectories(Paths.get(filesDir));
@@ -135,11 +151,18 @@ public class ClientHandler implements Runnable {
         } catch (NumberFormatException e) {
             sendError(writer, "UPLOAD ERROR: Invalid file size");
             logOperation(loggedClientId, "UPLOAD_FAIL:InvalidFileSize");
-            System.out.println("[UPLOAD][FAIL] Invalid file size for '" + filename + "' from IP: " + clientIp);
+            logger.warn("[UPLOAD][FAIL] Invalid file size for '{}' from IP: {}", filename, clientIp);
             return;
         }
-        System.out.println(
-                "[UPLOAD][START] File: '" + filename + "', Size: " + fileSize + " bytes, From IP: " + clientIp);
+        // Ograniczenie rozmiaru pliku do 100MB
+        if (fileSize > 104857600) {
+            sendError(writer, "UPLOAD ERROR: File too large (max 100MB)");
+            logOperation(loggedClientId, "UPLOAD_FAIL:FileTooLarge");
+            logger.warn("[UPLOAD][FAIL] File '{}' too large ({} bytes) from IP: {}", filename, fileSize, clientIp);
+            return;
+        }
+        logger.info(
+                "[UPLOAD][START] File: '{}', Size: {} bytes, From IP: {}", filename, fileSize, clientIp);
         try (OutputStream fileOut = Files.newOutputStream(filePath)) {
             byte[] buffer = new byte[4096];
             long received = 0;
@@ -154,30 +177,35 @@ public class ClientHandler implements Runnable {
         }
         sendOk(writer, "UPLOAD OK");
         logOperation(loggedClientId, "UPLOAD_OK: " + filename);
-        System.out
-                .println("[UPLOAD][END] File: '" + filename + "', Size: " + fileSize + " bytes, From IP: " + clientIp);
+        logger.info("[UPLOAD][END] File: '{}', Size: {} bytes, From IP: {}", filename, fileSize, clientIp);
     }
 
     private void sendFile(String filename, OutputStream out, BufferedWriter writer, String clientIp)
             throws IOException {
+        if (!isFilenameValid(filename)) {
+            sendError(writer, "DOWNLOAD ERROR: Invalid filename");
+            logOperation(loggedClientId, "DOWNLOAD_FAIL:InvalidFilename");
+            logger.warn("[DOWNLOAD][FAIL] Invalid filename '{}' for IP: {}", filename, clientIp);
+            return;
+        }
         if (filename.isEmpty()) {
             sendError(writer, "DOWNLOAD ERROR: No filename given");
             logOperation(loggedClientId, "DOWNLOAD_FAIL:NoFilename");
-            System.out.println("[DOWNLOAD][FAIL] No filename given to IP: " + clientIp);
+            logger.warn("[DOWNLOAD][FAIL] No filename given to IP: {}", clientIp);
             return;
         }
         Path filePath = Paths.get(filesDir, filename);
         if (!Files.exists(filePath)) {
             sendError(writer, "DOWNLOAD ERROR: File not found");
             logOperation(loggedClientId, "DOWNLOAD_FAIL:FileNotFound");
-            System.out.println("[DOWNLOAD][FAIL] File not found: '" + filename + "' for IP: " + clientIp);
+            logger.warn("[DOWNLOAD][FAIL] File not found: '{}' for IP: {}", filename, clientIp);
             return;
         }
         long fileSize = Files.size(filePath);
         writer.write(fileSize + "\n");
         writer.flush();
-        System.out.println(
-                "[DOWNLOAD][START] File: '" + filename + "', Size: " + fileSize + " bytes, To IP: " + clientIp);
+        logger.info(
+                "[DOWNLOAD][START] File: '{}', Size: {} bytes, To IP: {}", filename, fileSize, clientIp);
         try (InputStream fileIn = Files.newInputStream(filePath)) {
             byte[] buffer = new byte[4096];
             int read;
@@ -187,8 +215,7 @@ public class ClientHandler implements Runnable {
             out.flush();
         }
         logOperation(loggedClientId, "DOWNLOAD_OK: " + filename);
-        System.out
-                .println("[DOWNLOAD][END] File: '" + filename + "', Size: " + fileSize + " bytes, To IP: " + clientIp);
+        logger.info("[DOWNLOAD][END] File: '{}', Size: {} bytes, To IP: {}", filename, fileSize, clientIp);
     }
 
     private String handleRegister(String args) {
@@ -250,7 +277,7 @@ public class ClientHandler implements Runnable {
 
     private String handleReport() {
         IHistoryService historyService = serviceFactory.getHistoryService();
-        List<OperationHistoryModel> allOps = historyService.getHistoryByClientId(0); // uproszczenie: pobierz wszystko
+        List<OperationHistoryModel> allOps = historyService.getHistoryByClientId(0);
         String path = "report.csv";
         ReportExportUtil.exportToCsv(allOps, path);
         return "REPORT OK: " + path;

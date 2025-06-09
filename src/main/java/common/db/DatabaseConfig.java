@@ -15,7 +15,7 @@ public class DatabaseConfig {
     private int connectionTimeout = 30000; // 30 seconds
 
     // Default values in case config file is missing
-    private static final String DEFAULT_URL = "jdbc:mysql://localhost:3306/ftp_fs";
+    private static final String DEFAULT_URL = null;
     private static final String DEFAULT_USER = "root";
     private static final String DEFAULT_PASSWORD = "";
 
@@ -50,9 +50,10 @@ public class DatabaseConfig {
         }
 
         // Load configuration with fallbacks to defaults if needed
-        url = getPropertyWithDefault(prop, "db.url", DEFAULT_URL);
-        user = getPropertyWithDefault(prop, "db.user", DEFAULT_USER);
-        password = getPropertyWithDefault(prop, "db.password", DEFAULT_PASSWORD);
+        url = System.getenv().getOrDefault("DB_URL", getPropertyWithDefault(prop, "db.url", DEFAULT_URL));
+        user = System.getenv().getOrDefault("DB_USER", getPropertyWithDefault(prop, "db.user", DEFAULT_USER));
+        password = System.getenv().getOrDefault("DB_PASSWORD",
+                getPropertyWithDefault(prop, "db.password", DEFAULT_PASSWORD));
 
         // Try to parse optional configuration values
         try {
@@ -93,7 +94,8 @@ public class DatabaseConfig {
             System.err.println("WARNING: Database URL does not appear to be a valid MySQL JDBC URL: " + url);
         }
 
-        System.out.println("Database configuration initialized with URL: " + url + ", user: " + user + ", database: " + dbName);
+        System.out.println(
+                "Database configuration initialized with URL: " + url + ", user: " + user + ", database: " + dbName);
     }
 
     private String getPropertyWithDefault(Properties prop, String key, String defaultValue) {
@@ -105,21 +107,38 @@ public class DatabaseConfig {
         return value;
     }
 
-    public String getUrl() { return url; }
-    public String getUser() { return user; }
-    public String getPassword() { return password; }
-    public String getDbName() { return dbName; }
-    public int getMaxConnections() { return maxConnections; }
-    public int getConnectionTimeout() { return connectionTimeout; }
+    public String getUrl() {
+        return url;
+    }
+
+    public String getUser() {
+        return user;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getDbName() {
+        return dbName;
+    }
+
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public int getConnectionTimeout() {
+        return connectionTimeout;
+    }
 
     @Override
     public String toString() {
         return "DatabaseConfig{" +
-               "url='" + url + "', " +
-               "user='" + user + "', " +
-               "dbName='" + dbName + "', " +
-               "maxConnections=" + maxConnections + ", " +
-               "connectionTimeout=" + connectionTimeout +
-               '}';
+                "url='" + url + "', " +
+                "user='" + user + "', " +
+                "dbName='" + dbName + "', " +
+                "maxConnections=" + maxConnections + ", " +
+                "connectionTimeout=" + connectionTimeout +
+                '}';
     }
-} 
+}

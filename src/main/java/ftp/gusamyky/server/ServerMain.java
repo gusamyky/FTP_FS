@@ -7,17 +7,26 @@ import ftp.gusamyky.server.service.ServiceFactory;
 import ftp.gusamyky.server.util.DatabaseInitializer;
 import ftp.gusamyky.server.network.ServerNetworkService;
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLServerSocket;
+import java.net.Socket;
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
+import ftp.gusamyky.server.handler.ClientHandler;
 
 public class ServerMain {
     private static ServerNetworkService networkService;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        // SSL/TLS: wymagany keystore (patrz poniżej)
+        String keystore = System.getenv().getOrDefault("SSL_KEYSTORE", "keystore.jks");
+        String keystorePass = System.getenv().getOrDefault("SSL_KEYSTORE_PASS", "changeit");
+        System.setProperty("javax.net.ssl.keyStore", keystore);
+        System.setProperty("javax.net.ssl.keyStorePassword", keystorePass);
+
         System.out.println("[" + LocalDateTime.now() + "] Server starting...");
         try {
-            // Check if MySQL is running before attempting to connect
-            System.out.println("[" + LocalDateTime.now() + "] Checking if MySQL server is running...");
-            checkMySQLStatus();
-
             // Load config and initialize services
             ServerConfig serverConfig = ConfigLoader.loadServerConfig();
             DatabaseConfig dbConfig = ConfigLoader.loadDatabaseConfig();
@@ -25,55 +34,44 @@ public class ServerMain {
             ServiceFactory serviceFactory = new ServiceFactory(dbConfig, serverConfig);
             networkService = new ServerNetworkService(serverConfig, serviceFactory);
 
-            // Start socket server
-            Thread socketThread = new Thread(() -> {
-                try {
-                    networkService.start();
-                } catch (Exception e) {
-                    System.err.println("[" + LocalDateTime.now() + "] Socket server error: " + e.getMessage());
-                    e.printStackTrace();
+            int port = serverConfig.getPort();
+            AtomicInteger activeConnections = new AtomicInteger(0);
+            SSLServerSocketFactory factory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+            try (SSLServerSocket serverSocket = (SSLServerSocket) factory.createServerSocket(port)) {
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    try {
+                        serverSocket.close();
+                        System.out.println("[Server] Zamknięto serwer (SIGTERM/SIGINT)");
+                    } catch (Exception e) {
+                        System.err.println("[Server] Błąd przy zamykaniu serwera: " + e.getMessage());
+                    }
+                }));
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    if (activeConnections.get() >= 50) {
+
+                        try (BufferedWriter writer = new BufferedWriter(
+                                new OutputStreamWriter(clientSocket.getOutputStream()))) {
+                            writer.write("ERROR: Server full. Try again later.\n");
+                            writer.flush();
+                        }
+                        clientSocket.close();
+                        continue;
+                    }
+                    activeConnections.incrementAndGet();
+                    new Thread(() -> {
+                        try {
+                            new ClientHandler(clientSocket, serviceFactory).run();
+                        } finally {
+                            activeConnections.decrementAndGet();
+                        }
+                    }).start();
                 }
-            });
-            socketThread.start();
-
-            // Add shutdown hook to close resources properly
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("[" + LocalDateTime.now() + "] Server shutting down, closing resources...");
-                // Tu można dodać zamykanie połączeń, jeśli potrzeba
-                System.out.println("[" + LocalDateTime.now() + "] Server shutdown complete");
-            }));
-
-            System.out.println("[" + LocalDateTime.now() + "] Server started successfully");
-            socketThread.join();
+            }
         } catch (Exception e) {
             System.err.println("[" + LocalDateTime.now() + "] Failed to start server: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
-        }
-    }
-
-    /**
-     * Checks if MySQL server is running and accessible
-     */
-    private static void checkMySQLStatus() {
-        String host = "localhost";
-        int port = 3306;
-        try (java.net.Socket socket = new java.net.Socket()) {
-            socket.connect(new java.net.InetSocketAddress(host, port), 1000);
-            System.out.println("[" + LocalDateTime.now() + "] MySQL server is running at " + host + ":" + port);
-        } catch (java.net.ConnectException e) {
-            System.err.println(
-                    "[" + LocalDateTime.now() + "] ERROR: MySQL server is not running at " + host + ":" + port);
-            System.err
-                    .println("[" + LocalDateTime.now() + "] Please start MySQL server before running this application");
-            System.err.println("[" + LocalDateTime.now() + "] Starting instructions:" +
-                    "\n  - Linux: sudo service mysql start" +
-                    "\n  - macOS: mysql.server start" +
-                    "\n  - Windows: Start MySQL service from Services app");
-            throw new RuntimeException("MySQL server is not running at " + host + ":" + port);
-        } catch (Exception e) {
-            System.err.println("[" + LocalDateTime.now() + "] Error checking MySQL status: " + e.getMessage());
-            throw new RuntimeException("Failed to check MySQL status", e);
         }
     }
 }

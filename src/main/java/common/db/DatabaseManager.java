@@ -34,53 +34,16 @@ public class DatabaseManager {
         int retries = 0;
         boolean connected = false;
 
-        // Check if MySQL is available by attempting a socket connection first
-        String jdbcUrl = config.getUrl();
-        String host = "localhost";
-        int port = 3306;
-
-        // Extract host and port from JDBC URL if possible
-        if (jdbcUrl.contains("//")) {
-            String hostPart = jdbcUrl.split("//")[1].split("/")[0];
-            if (hostPart.contains(":")) {
-                String[] hostPortParts = hostPart.split(":");
-                host = hostPortParts[0];
-                try {
-                    port = Integer.parseInt(hostPortParts[1]);
-                } catch (NumberFormatException e) {
-                    System.err.println("[" + LocalDateTime.now() + "] Invalid port in JDBC URL, using default 3306");
-                }
-            } else {
-                host = hostPart;
-            }
-        }
-
-        // Check MySQL availability before attempting JDBC connection
-        try (java.net.Socket socket = new java.net.Socket()) {
-            socket.connect(new java.net.InetSocketAddress(host, port), 1000);
-            System.out.println("[" + LocalDateTime.now() + "] MySQL server is reachable at " + host + ":" + port);
-        } catch (java.net.ConnectException e) {
-            System.err.println("[" + LocalDateTime.now() + "] MySQL server is not running or not reachable at " + host + ":" + port);
-            System.err.println("[" + LocalDateTime.now() + "] Please ensure MySQL is running before starting this application");
-            System.err.println("[" + LocalDateTime.now() + "] To start MySQL:"  +
-                    "\n  - Linux: sudo service mysql start"  +
-                    "\n  - macOS: mysql.server start"  +
-                    "\n  - Windows: Start MySQL service from Services app");
-            throw new SQLException("Cannot connect to MySQL server at " + host + ":" + port + ". Server may not be running.", e);
-        } catch (Exception e) {
-            System.err.println("[" + LocalDateTime.now() + "] Error checking MySQL availability: " + e.getMessage());
-        }
-
         while (!connected && retries < MAX_RETRIES) {
             try {
                 // First connect without specifying a database to create it if needed
-                String urlNoDb = config.getUrl().substring(0, config.getUrl().lastIndexOf("/")+1);
+                String urlNoDb = config.getUrl().substring(0, config.getUrl().lastIndexOf("/") + 1);
 
                 System.out.println("[" + LocalDateTime.now() + "] Attempting to connect to MySQL server at " + urlNoDb);
 
                 // Create database if it doesn't exist
                 try (Connection conn = DriverManager.getConnection(urlNoDb, config.getUser(), config.getPassword());
-                     Statement stmt = conn.createStatement()) {
+                        Statement stmt = conn.createStatement()) {
                     stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS " + config.getDbName());
                     System.out.println("[" + LocalDateTime.now() + "] Successfully connected to MySQL server");
                 }
@@ -90,15 +53,17 @@ public class DatabaseManager {
                 connection = DriverManager.getConnection(config.getUrl(), config.getUser(), config.getPassword());
                 initDatabase();
                 connected = true;
-                System.out.println("[" + LocalDateTime.now() + "] Successfully connected to database: " + config.getDbName());
+                System.out.println(
+                        "[" + LocalDateTime.now() + "] Successfully connected to database: " + config.getDbName());
             } catch (SQLException e) {
                 retries++;
                 if (retries >= MAX_RETRIES) {
-                    System.err.println("[" + LocalDateTime.now() + "] Failed to connect to MySQL after " + MAX_RETRIES + " attempts");
-                    System.err.println("Make sure MySQL is running on localhost:3306 with correct credentials");
+                    System.err.println("[" + LocalDateTime.now() + "] Failed to connect to MySQL after " + MAX_RETRIES
+                            + " attempts");
                     throw e;
                 } else {
-                    System.err.println("[" + LocalDateTime.now() + "] Database connection attempt " + retries + " failed: " + e.getMessage());
+                    System.err.println("[" + LocalDateTime.now() + "] Database connection attempt " + retries
+                            + " failed: " + e.getMessage());
                     System.err.println("Retrying in " + RETRY_DELAY_SECONDS + " seconds...");
                     try {
                         Thread.sleep(RETRY_DELAY_SECONDS * 1000);
@@ -113,17 +78,17 @@ public class DatabaseManager {
     private void initDatabase() throws SQLException {
         try (Statement stmt = connection.createStatement()) {
             stmt.executeUpdate(
-                "CREATE TABLE IF NOT EXISTS Klienci (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "username VARCHAR(50) UNIQUE, " +
-                "password VARCHAR(255))");
+                    "CREATE TABLE IF NOT EXISTS Klienci (" +
+                            "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                            "username VARCHAR(50) UNIQUE, " +
+                            "password VARCHAR(255))");
             stmt.executeUpdate(
-                "CREATE TABLE IF NOT EXISTS HistoriaOperacji (" +
-                "id INT PRIMARY KEY AUTO_INCREMENT, " +
-                "client_id INT, " +
-                "operation VARCHAR(255), " +
-                "timestamp DATETIME, " +
-                "FOREIGN KEY (client_id) REFERENCES Klienci(id))");
+                    "CREATE TABLE IF NOT EXISTS HistoriaOperacji (" +
+                            "id INT PRIMARY KEY AUTO_INCREMENT, " +
+                            "client_id INT, " +
+                            "operation VARCHAR(255), " +
+                            "timestamp DATETIME, " +
+                            "FOREIGN KEY (client_id) REFERENCES Klienci(id))");
             System.out.println("[" + LocalDateTime.now() + "] Database tables verified/created successfully");
         }
     }
@@ -131,7 +96,8 @@ public class DatabaseManager {
     private void validateConnection() {
         try {
             if (connection == null || connection.isClosed()) {
-                System.out.println("[" + LocalDateTime.now() + "] Database connection is closed or null. Reconnecting...");
+                System.out.println(
+                        "[" + LocalDateTime.now() + "] Database connection is closed or null. Reconnecting...");
                 initializeDatabase();
             } else {
                 try (Statement stmt = connection.createStatement()) {
@@ -143,7 +109,8 @@ public class DatabaseManager {
             try {
                 initializeDatabase();
             } catch (IOException | SQLException ex) {
-                System.err.println("[" + LocalDateTime.now() + "] Failed to re-establish database connection: " + ex.getMessage());
+                System.err.println(
+                        "[" + LocalDateTime.now() + "] Failed to re-establish database connection: " + ex.getMessage());
             }
         }
     }
@@ -181,4 +148,4 @@ public class DatabaseManager {
         }
         scheduler.shutdown();
     }
-} 
+}

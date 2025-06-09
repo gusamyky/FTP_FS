@@ -98,3 +98,30 @@ Ustaw dane dostępowe w pliku `src/main/resources/config.properties`.
 - `client/` – kod klienta
 - `server/` – kod serwera
 - `common/` – klasy wspólne (modele, narzędzia, obsługa bazy) 
+
+## Uruchomienie przez Docker
+
+Możesz uruchomić serwer w kontenerze Docker. Najpierw zbuduj plik JAR:
+
+```bash
+mvn clean package
+```
+
+Następnie zbuduj obraz Docker:
+
+```bash
+docker build -t ftpfs:latest .
+```
+
+Uruchom kontener, przekazując konfigurację przez zmienne środowiskowe (ENV):
+
+```bash
+docker run -e DB_URL="jdbc:mysql://adres.mysql:3306/ftp_fs" \
+           -e DB_USER="user" \
+           -e DB_PASSWORD="haslo" \
+           -e SERVER_PORT=2121 \
+           -e SERVER_FILES_DIR=/data \
+           -p 2121:2121 ftpfs:latest
+```
+
+Każda wartość z pliku `config.properties` może być nadpisana przez zmienną środowiskową (ENV), np. `DB_URL`, `DB_USER`, `SERVER_PORT` itd. Szczegóły znajdziesz w komentarzach w pliku `config.properties`. 
