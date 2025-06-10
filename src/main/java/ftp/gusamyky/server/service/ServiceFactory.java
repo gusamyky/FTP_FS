@@ -6,15 +6,19 @@ import ftp.gusamyky.server.common.repository.IHistoryRepository;
 import ftp.gusamyky.server.common.service.IUserService;
 import ftp.gusamyky.server.common.service.IFileService;
 import ftp.gusamyky.server.common.service.IHistoryService;
-import ftp.gusamyky.server.database_handler.repository.ClientRepositoryImpl;
-import ftp.gusamyky.server.database_handler.repository.FileRepositoryImpl;
-import ftp.gusamyky.server.database_handler.repository.HistoryRepositoryImpl;
+import ftp.gusamyky.server.common.repository.impl.ClientRepositoryImpl;
+import ftp.gusamyky.server.common.repository.impl.FileRepositoryImpl;
+import ftp.gusamyky.server.common.repository.impl.HistoryRepositoryImpl;
 import ftp.gusamyky.server.service.impl.UserServiceImpl;
 import ftp.gusamyky.server.service.impl.FileServiceImpl;
 import ftp.gusamyky.server.service.impl.HistoryServiceImpl;
 import ftp.gusamyky.server.config.DatabaseConfig;
 import ftp.gusamyky.server.config.ServerConfig;
 
+/**
+ * Factory class for creating service instances.
+ * This class is responsible for creating and managing service instances.
+ */
 public class ServiceFactory {
     private final IClientRepository clientRepository;
     private final IFileRepository fileRepository;
@@ -44,10 +48,6 @@ public class ServiceFactory {
 
     public IHistoryService getHistoryService() {
         return historyService;
-    }
-
-    public IClientRepository getClientRepository() {
-        return clientRepository;
     }
 
     public ServerConfig getServerConfig() {

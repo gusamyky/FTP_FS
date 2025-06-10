@@ -9,4 +9,10 @@ public interface IFileService {
     List<ServerFileModel> listFilesByOwner(int ownerId);
 
     boolean deleteFile(int id);
+
+    void saveFile(ServerFileModel file);
+
+    List<ServerFileModel> getFilesByOwnerId(int ownerId);
+
+    ServerFileModel getFileByName(String filename);
 }

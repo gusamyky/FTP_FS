@@ -24,10 +24,26 @@ public class FileServiceImpl implements IFileService {
 
     @Override
     public boolean deleteFile(int id) {
-        ServerFileModel file = fileRepository.findById(id);
-        if (file == null)
+        try {
+            fileRepository.delete(id);
+            return true;
+        } catch (Exception e) {
             return false;
-        fileRepository.delete(id);
-        return true;
+        }
+    }
+
+    @Override
+    public void saveFile(ServerFileModel file) {
+        fileRepository.save(file);
+    }
+
+    @Override
+    public List<ServerFileModel> getFilesByOwnerId(int ownerId) {
+        return fileRepository.findByOwnerId(ownerId);
+    }
+
+    @Override
+    public ServerFileModel getFileByName(String filename) {
+        return fileRepository.findByFilename(filename);
     }
 }

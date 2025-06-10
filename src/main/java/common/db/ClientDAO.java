@@ -4,9 +4,12 @@ import common.model.Client;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import org.mindrot.jbcrypt.BCrypt;
 
 public class ClientDAO {
+    private static final Logger LOGGER = Logger.getLogger(ClientDAO.class.getName());
     private final Connection connection;
 
     public ClientDAO(Connection connection) {
@@ -19,6 +22,10 @@ public class ClientDAO {
             stmt.setString(1, client.getUsername());
             stmt.setString(2, client.getPassword());
             stmt.executeUpdate();
+            LOGGER.info("Added new client: " + client.getUsername());
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to add client: " + client.getUsername(), e);
+            throw e;
         }
     }
 
@@ -28,21 +35,27 @@ public class ClientDAO {
             stmt.setString(1, username);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return new Client(
-                            rs.getInt("id"),
-                            rs.getString("username"),
-                            rs.getString("password"));
+                    return mapResultSetToClient(rs);
                 }
             }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to get client by username: " + username, e);
+            throw e;
         }
         return null;
     }
 
     public boolean checkPassword(String username, String plainPassword) throws SQLException {
         Client client = getClientByUsername(username);
-        if (client == null)
+        if (client == null) {
+            LOGGER.warning("Password check failed: Client not found: " + username);
             return false;
-        return BCrypt.checkpw(plainPassword, client.getPassword());
+        }
+        boolean passwordValid = BCrypt.checkpw(plainPassword, client.getPassword());
+        if (!passwordValid) {
+            LOGGER.warning("Password check failed: Invalid password for client: " + username);
+        }
+        return passwordValid;
     }
 
     public List<Client> getAllClients() throws SQLException {
@@ -51,11 +64,11 @@ public class ClientDAO {
         try (Statement stmt = connection.createStatement();
                 ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                clients.add(new Client(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        rs.getString("password")));
+                clients.add(mapResultSetToClient(rs));
             }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to get all clients", e);
+            throw e;
         }
         return clients;
     }
@@ -66,7 +79,15 @@ public class ClientDAO {
             stmt.setString(1, client.getUsername());
             stmt.setString(2, client.getPassword());
             stmt.setInt(3, client.getId());
-            stmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
+            if (rowsAffected == 0) {
+                LOGGER.warning("No client found to update with ID: " + client.getId());
+            } else {
+                LOGGER.info("Updated client: " + client.getUsername());
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to update client: " + client.getUsername(), e);
+            throw e;
         }
     }
 
@@ -74,7 +95,22 @@ public class ClientDAO {
         String sql = "DELETE FROM Klienci WHERE id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
-            stmt.executeUpdate();
+            int rowsAffected = stmt.executeUpdate();
+            if (rowsAffected == 0) {
+                LOGGER.warning("No client found to delete with ID: " + id);
+            } else {
+                LOGGER.info("Deleted client with ID: " + id);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Failed to delete client with ID: " + id, e);
+            throw e;
         }
+    }
+
+    private Client mapResultSetToClient(ResultSet rs) throws SQLException {
+        return new Client(
+                rs.getInt("id"),
+                rs.getString("username"),
+                rs.getString("password"));
     }
 }

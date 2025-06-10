@@ -11,4 +11,6 @@ public interface IFileRepository {
     void save(ServerFileModel file);
 
     void delete(int id);
+
+    ServerFileModel findByFilename(String filename);
 }

@@ -23,3 +23,14 @@ CREATE TABLE IF NOT EXISTS HistoriaOperacji (
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES Klienci(id)
 );
+
+-- Files table
+CREATE TABLE IF NOT EXISTS Pliki (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    filename VARCHAR(255) NOT NULL,
+    size BIGINT NOT NULL,
+    owner_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES Klienci(id),
+    UNIQUE KEY unique_filename_owner (filename, owner_id)
+);
