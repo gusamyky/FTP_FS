@@ -6,77 +6,93 @@ import ftp.gusamyky.server.config.DatabaseConfig;
 import ftp.gusamyky.server.service.ServiceFactory;
 import ftp.gusamyky.server.util.DatabaseInitializer;
 import ftp.gusamyky.server.network.ServerNetworkService;
-import java.time.LocalDateTime;
+import ftp.gusamyky.server.common.exception.DatabaseException;
+import ftp.gusamyky.server.common.exception.ServerException;
+
 import java.sql.DriverManager;
 import java.sql.Connection;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class ServerMain {
+    private static final Logger LOGGER = Logger.getLogger(ServerMain.class.getName());
     private static ServerNetworkService networkService;
 
     public static void main(String[] args) {
-        System.out.println("[" + LocalDateTime.now() + "] Server starting...");
+        LOGGER.info("Server starting...");
         try {
-            // Load config first to get database connection details
+            // Load configurations
             ServerConfig serverConfig = ConfigLoader.loadServerConfig();
             DatabaseConfig dbConfig = ConfigLoader.loadDatabaseConfig();
 
-            // Check if Azure MySQL is accessible
-            System.out.println("[" + LocalDateTime.now() + "] Checking Azure MySQL connection...");
-            checkMySQLStatus(dbConfig);
+            // Verify database connection
+            LOGGER.info("Verifying database connection...");
+            verifyDatabaseConnection(dbConfig);
 
             // Initialize services
             DatabaseInitializer.initialize(dbConfig);
             ServiceFactory serviceFactory = new ServiceFactory(dbConfig, serverConfig);
             networkService = new ServerNetworkService(serverConfig, serviceFactory);
 
-            // Start socket server
-            Thread socketThread = new Thread(() -> {
-                try {
-                    networkService.start();
-                } catch (Exception e) {
-                    System.err.println("[" + LocalDateTime.now() + "] Socket server error: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            });
-            socketThread.start();
+            // Start network service
+            startNetworkService();
 
-            // Add shutdown hook to close resources properly
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("[" + LocalDateTime.now() + "] Server shutting down, closing resources...");
-                // Tu można dodać zamykanie połączeń, jeśli potrzeba
-                System.out.println("[" + LocalDateTime.now() + "] Server shutdown complete");
-            }));
+            // Add shutdown hook
+            addShutdownHook();
 
-            System.out.println("[" + LocalDateTime.now() + "] Server started successfully");
-            socketThread.join();
+            LOGGER.info("Server started successfully");
+        } catch (DatabaseException e) {
+            LOGGER.log(Level.SEVERE, "Database error: " + e.getMessage(), e);
+            System.exit(1);
+        } catch (ServerException e) {
+            LOGGER.log(Level.SEVERE, "Server error: " + e.getMessage(), e);
+            System.exit(1);
         } catch (Exception e) {
-            System.err.println("[" + LocalDateTime.now() + "] Failed to start server: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Unexpected error: " + e.getMessage(), e);
             System.exit(1);
         }
     }
 
-    /**
-     * Checks if Azure MySQL server is accessible
-     */
-    private static void checkMySQLStatus(DatabaseConfig dbConfig) {
-        try {
-            // Try to establish a connection to Azure MySQL
-            try (Connection conn = DriverManager.getConnection(
-                    dbConfig.getUrlNoDb(),
-                    dbConfig.getUser(),
-                    dbConfig.getPassword())) {
-                System.out.println("[" + LocalDateTime.now() + "] Successfully connected to Azure MySQL server");
+    private static void startNetworkService() {
+        Thread socketThread = new Thread(() -> {
+            try {
+                networkService.start();
+            } catch (ServerException e) {
+                LOGGER.log(Level.SEVERE, "Network service error: " + e.getMessage(), e);
             }
+        });
+        socketThread.setName("NetworkService");
+        socketThread.start();
+    }
+
+    private static void addShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            LOGGER.info("Server shutting down, closing resources...");
+            if (networkService != null) {
+                try {
+                    networkService.stop();
+                } catch (ServerException e) {
+                    LOGGER.log(Level.WARNING, "Error during network service shutdown: " + e.getMessage(), e);
+                }
+            }
+            LOGGER.info("Server shutdown complete");
+        }));
+    }
+
+    private static void verifyDatabaseConnection(DatabaseConfig dbConfig) {
+        try (Connection conn = DriverManager.getConnection(
+                dbConfig.getUrlNoDb(),
+                dbConfig.getUser(),
+                dbConfig.getPassword())) {
+            LOGGER.info("Successfully connected to database server");
         } catch (Exception e) {
-            System.err.println("[" + LocalDateTime.now() + "] ERROR: Cannot connect to Azure MySQL server");
-            System.err.println("[" + LocalDateTime.now() + "] Please check your Azure MySQL connection settings:");
-            System.err.println("[" + LocalDateTime.now() + "] - Server URL: " + dbConfig.getUrl());
-            System.err.println("[" + LocalDateTime.now() + "] - Username: " + dbConfig.getUser());
-            System.err.println(
-                    "[" + LocalDateTime.now() + "] - Make sure your IP is allowed in Azure MySQL firewall rules");
-            System.err.println("[" + LocalDateTime.now() + "] - Verify SSL settings in connection string");
-            throw new RuntimeException("Failed to connect to Azure MySQL server", e);
+            String errorMsg = String.format("Failed to connect to database server. URL: %s, User: %s",
+                    dbConfig.getUrl(), dbConfig.getUser());
+            LOGGER.severe(errorMsg);
+            LOGGER.severe("Please check your database connection settings:");
+            LOGGER.severe("- Verify network connectivity and firewall rules");
+            LOGGER.severe("- Check SSL settings if enabled");
+            throw new DatabaseException(errorMsg, e);
         }
     }
 }
