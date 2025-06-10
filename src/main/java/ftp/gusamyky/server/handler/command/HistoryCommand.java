@@ -7,10 +7,8 @@ import ftp.gusamyky.server.service.ServiceFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class HistoryCommand extends BaseCommand {
-    private static final Logger LOGGER = Logger.getLogger(HistoryCommand.class.getName());
     private static final String COMMAND_NAME = "HISTORY";
 
     public HistoryCommand(ServiceFactory serviceFactory, BufferedWriter writer, String args, String clientIp,
